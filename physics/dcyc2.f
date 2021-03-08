@@ -16,18 +16,11 @@
 
       contains
 
-!! \section arg_table_dcyc2t3_init Argument Table
-!!
       subroutine dcyc2t3_init()
       end subroutine dcyc2t3_init
 
-!! \section arg_table_dcyc2t3_finalize Argument Table
-!!
       subroutine dcyc2t3_finalize()
       end subroutine dcyc2t3_finalize
-
-
-
 
 ! ===================================================================== !
 !  description:                                                         !
@@ -47,9 +40,9 @@
 !    call dcyc2t3                                                       !
 !      inputs:                                                          !
 !          ( solhr,slag,sdec,cdec,sinlat,coslat,                        !
-!            xlon,coszen,tsfc_lnd,tsfc_ice,tsfc_ocn,                    !
-!            tf,tsflw,sfcemis_lnd,sfcemis_ice,sfcemis_ocn,              !
-!            sfcdsw,sfcnsw,sfcdlw,swh,swhc,hlw,hlwc,                    !
+!            xlon,coszen,tsfc_lnd,tsfc_ice,tsfc_wat,                    !
+!            tf,tsflw,sfcemis_lnd,sfcemis_ice,sfcemis_wat,              !
+!            sfcdsw,sfcnsw,sfcdlw,sfculw,swh,swhc,hlw,hlwc,             !
 !            sfcnirbmu,sfcnirdfu,sfcvisbmu,sfcvisdfu,                   !
 !            sfcnirbmd,sfcnirdfd,sfcvisbmd,sfcvisdfd,                   !
 !            im, levs, deltim, fhswr,                                   !
@@ -57,8 +50,8 @@
 !      input/output:                                                    !
 !            dtdt,dtdtc,                                                !
 !      outputs:                                                         !
-!            adjsfcdsw,adjsfcnsw,adjsfcdlw,                             !
-!            adjsfculw_lnd,adjsfculw_ice,adjsfculw_ocn,xmu,xcosz,       !
+!            adjsfcdsw,adjsfcnsw,adjsfcdlw,adjsfculw,                   !
+!            adjsfculw_lnd,adjsfculw_ice,adjsfculw_wat,xmu,xcosz,       !
 !            adjnirbmu,adjnirdfu,adjvisbmu,adjvisdfu,                   !
 !            adjdnnbmd,adjdnndfd,adjdnvbmd,adjdnvdfd)                   !
 !                                                                       !
@@ -74,15 +67,16 @@
 !     coszen (im)  - real, avg of cosz over daytime sw call interval    !
 !     tsfc_lnd  (im) - real, bottom surface temperature over land (k)   !
 !     tsfc_ice  (im) - real, bottom surface temperature over ice (k)    !
-!     tsfc_ocn  (im) - real, bottom surface temperature over ocean (k)  !
+!     tsfc_wat  (im) - real, bottom surface temperature over ocean (k)  !
 !     tf     (im)  - real, surface air (layer 1) temperature (k)        !
 !     sfcemis_lnd(im) - real, surface emissivity (fraction) o. land (k) !
 !     sfcemis_ice(im) - real, surface emissivity (fraction) o. ice (k)  !
-!     sfcemis_ocn(im) - real, surface emissivity (fraction) o. ocean (k)!
+!     sfcemis_wat(im) - real, surface emissivity (fraction) o. ocean (k)!
 !     tsflw  (im)  - real, sfc air (layer 1) temp in k saved in lw call !
 !     sfcdsw (im)  - real, total sky sfc downward sw flux ( w/m**2 )    !
 !     sfcnsw (im)  - real, total sky sfc net sw into ground (w/m**2)    !
 !     sfcdlw (im)  - real, total sky sfc downward lw flux ( w/m**2 )    !
+!     sfculw (im)  - real, total sky sfc upward lw flux ( w/m**2 )    !
 !     swh(im,levs) - real, total sky sw heating rates ( k/s )           !
 !     swhc(im,levs) - real, clear sky sw heating rates ( k/s )          !
 !     hlw(im,levs) - real, total sky lw heating rates ( k/s )           !
@@ -115,7 +109,7 @@
 !     adjsfcdlw(im)- real, time step adjusted sfc dn lw flux (w/m**2)   !
 !     adjsfculw_lnd(im)- real, sfc upw. lw flux at current time (w/m**2)!
 !     adjsfculw_ice(im)- real, sfc upw. lw flux at current time (w/m**2)!
-!     adjsfculw_ocn(im)- real, sfc upw. lw flux at current time (w/m**2)!
+!     adjsfculw_wat(im)- real, sfc upw. lw flux at current time (w/m**2)!
 !     adjnirbmu(im)- real, t adj sfc nir-beam sw upward flux (w/m2)     !
 !     adjnirdfu(im)- real, t adj sfc nir-diff sw upward flux (w/m2)     !
 !     adjvisbmu(im)- real, t adj sfc uv+vis-beam sw upward flux (w/m2)  !
@@ -179,19 +173,20 @@
       subroutine dcyc2t3_run                                            &
 !  ---  inputs:
      &     ( solhr,slag,sdec,cdec,sinlat,coslat,                        &
-     &       xlon,coszen,tsfc_lnd,tsfc_ice,tsfc_ocn,tf,tsflw,           &
-     &       sfcemis_lnd, sfcemis_ice, sfcemis_ocn,                     &
+     &       xlon,coszen,tsfc_lnd,tsfc_ice,tsfc_wat,tf,tsflw,           &
+     &       sfcemis_lnd, sfcemis_ice, sfcemis_wat,                     &
      &       sfcdsw,sfcnsw,sfcdlw,swh,swhc,hlw,hlwc,                    &
      &       sfcnirbmu,sfcnirdfu,sfcvisbmu,sfcvisdfu,                   &
      &       sfcnirbmd,sfcnirdfd,sfcvisbmd,sfcvisdfd,                   &
      &       im, levs, deltim, fhswr,                                   &
      &       dry, icy, wet,                                             &
+     &       use_LW_jacobian, sfculw, sfculw_jac,                       &
 !    &       dry, icy, wet, lprnt, ipr,                                 &
 !  ---  input/output:
      &       dtdt,dtdtc,                                                &
 !  ---  outputs:
-     &       adjsfcdsw,adjsfcnsw,adjsfcdlw,                             &
-     &       adjsfculw_lnd,adjsfculw_ice,adjsfculw_ocn,xmu,xcosz,       &
+     &       adjsfcdsw,adjsfcnsw,adjsfcdlw,adjsfculw,                   &
+     &       adjsfculw_lnd,adjsfculw_ice,adjsfculw_wat,xmu,xcosz,       &
      &       adjnirbmu,adjnirdfu,adjvisbmu,adjvisdfu,                   &
      &       adjnirbmd,adjnirdfd,adjvisbmd,adjvisdfd,                   &
      &       errmsg,errflg                                              &
@@ -217,16 +212,17 @@
 !     integer, intent(in) :: ipr
 !     logical lprnt
       logical, dimension(im), intent(in) :: dry, icy, wet
+      logical, intent(in) :: use_LW_jacobian
       real(kind=kind_phys),   intent(in) :: solhr, slag, cdec, sdec,    &
      &                                      deltim, fhswr
 
       real(kind=kind_phys), dimension(im), intent(in) ::                &
      &      sinlat, coslat, xlon, coszen, tf, tsflw, sfcdlw,            &
-     &      sfcdsw, sfcnsw
+     &      sfcdsw, sfcnsw, sfculw, sfculw_jac
 
       real(kind=kind_phys), dimension(im), intent(in) ::                &
-     &                         tsfc_lnd, tsfc_ice, tsfc_ocn,            &
-     &                         sfcemis_lnd, sfcemis_ice, sfcemis_ocn
+     &                         tsfc_lnd, tsfc_ice, tsfc_wat,            &
+     &                         sfcemis_lnd, sfcemis_ice, sfcemis_wat
 
       real(kind=kind_phys), dimension(im), intent(in) ::                &
      &      sfcnirbmu, sfcnirdfu, sfcvisbmu, sfcvisdfu,                 &
@@ -241,12 +237,12 @@
 
 !  ---  outputs:
       real(kind=kind_phys), dimension(im), intent(out) ::               &
-     &      adjsfcdsw, adjsfcnsw, adjsfcdlw,            xmu, xcosz,     &
+     &      adjsfcdsw, adjsfcnsw, adjsfcdlw, adjsfculw, xmu, xcosz,     &
      &      adjnirbmu, adjnirdfu, adjvisbmu, adjvisdfu,                 &
      &      adjnirbmd, adjnirdfd, adjvisbmd, adjvisdfd
 
       real(kind=kind_phys), dimension(im), intent(out) ::               &
-     &      adjsfculw_lnd, adjsfculw_ice, adjsfculw_ocn
+     &      adjsfculw_lnd, adjsfculw_ice, adjsfculw_wat
 
       character(len=*), intent(out) :: errmsg
       integer,          intent(out) :: errflg
@@ -254,7 +250,7 @@
 !  ---  locals:
       integer :: i, k, nstp, nstl, it, istsun(im)
       real(kind=kind_phys) :: cns,  coszn, tem1, tem2, anginc,          &
-     &                        rstl, solang
+     &                        rstl, solang, dT
 !
 !===> ...  begin here
 !
@@ -286,10 +282,10 @@
           istsun(i) = zero
         enddo
         do it=1,nstl
-          cns = solang + (float(it)-0.5)*anginc + slag
+          cns = solang + (float(it)-0.5_kind_phys)*anginc + slag
           do i = 1, IM
             coszn    = sdec*sinlat(i) + cdec*coslat(i)*cos(cns+xlon(i))
-            xcosz(i) = xcosz(i) + max(0.0, coszn)
+            xcosz(i) = xcosz(i) + max(zero, coszn)
             if (coszn > czlimt) istsun(i) = istsun(i) + 1
           enddo
         enddo
@@ -298,33 +294,35 @@
         enddo
       endif
 !
-      do i = 1, im
 
+      do i = 1, im
+         tem1 = tf(i) / tsflw(i)
+         tem2 = tem1 * tem1
+         adjsfcdlw(i) = sfcdlw(i) * tem2 * tem2
 !> - LW time-step adjustment:
+         if (use_LW_Jacobian) then
+            ! F_adj = F_o + (dF/dT) * dT	
+            dT           = tf(i) - tsflw(i)
+            adjsfculw(i) = sfculw(i) + sfculw_jac(i) * dT
+         else
 !!  - adjust \a sfc downward LW flux to account for t changes in the lowest model layer.
 !! compute 4th power of the ratio of \c tf in the lowest model layer over the mean value \c tsflw.
-        tem1 = tf(i) / tsflw(i)
-        tem2 = tem1 * tem1
-        adjsfcdlw(i) = sfcdlw(i) * tem2 * tem2
-
-!!  - compute \a sfc upward LW flux from current \a sfc temperature.
-!      note: sfc emiss effect is not appied here, and will be dealt in other place
-
-        if (dry(i)) then
-          tem2 = tsfc_lnd(i) * tsfc_lnd(i)
-          adjsfculw_lnd(i) =  sfcemis_lnd(i) * con_sbc * tem2 * tem2
-     &                     + (one - sfcemis_lnd(i)) * adjsfcdlw(i)
-        endif
-        if (icy(i)) then
-          tem2 = tsfc_ice(i) * tsfc_ice(i)
-          adjsfculw_ice(i) =  sfcemis_ice(i) * con_sbc * tem2 * tem2
-     &                     + (one - sfcemis_ice(i)) * adjsfcdlw(i)
-        endif
-        if (wet(i)) then
-          tem2 = tsfc_ocn(i) * tsfc_ocn(i)
-          adjsfculw_ocn(i) =  sfcemis_ocn(i) * con_sbc * tem2 * tem2
-     &                     + (one - sfcemis_ocn(i)) * adjsfcdlw(i)
-        endif
+           if (dry(i)) then
+             tem2 = tsfc_lnd(i) * tsfc_lnd(i)
+             adjsfculw_lnd(i) =  sfcemis_lnd(i) * con_sbc * tem2 * tem2
+     &                        + (one - sfcemis_lnd(i)) * adjsfcdlw(i)
+           endif
+           if (icy(i)) then
+             tem2 = tsfc_ice(i) * tsfc_ice(i)
+             adjsfculw_ice(i) =  sfcemis_ice(i) * con_sbc * tem2 * tem2
+     &                        + (one - sfcemis_ice(i)) * adjsfcdlw(i)
+           endif
+           if (wet(i)) then
+             tem2 = tsfc_wat(i) * tsfc_wat(i)
+             adjsfculw_wat(i) =  sfcemis_wat(i) * con_sbc * tem2 * tem2
+     &                        + (one - sfcemis_wat(i)) * adjsfcdlw(i)
+          endif
+        endif  
 !     if (lprnt .and. i == ipr) write(0,*)' in dcyc3: dry==',dry(i)
 !    &,' wet=',wet(i),' icy=',icy(i),' tsfc3=',tsfc3(i,:)
 !    &,' sfcemis=',sfcemis(i,:),' adjsfculw=',adjsfculw(i,:)
@@ -334,7 +332,7 @@
         if ( xcosz(i) > f_eps .and. coszen(i) > f_eps ) then
           xmu(i) = xcosz(i) / coszen(i)
         else
-          xmu(i) = 0.0
+          xmu(i) = zero
         endif
 
 !>  - adjust \a sfc net and downward SW fluxes for zenith angle changes.
